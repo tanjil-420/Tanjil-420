@@ -1,12 +1,14 @@
 const fs = require("fs-extra");
+const path = require("path");
 
 module.exports = {
   config: {
     name: "prefix",
-    version: "3.1",
-    author: "NoobCore Team | NC-Saim",
+    version: "1.3",
+    modify: ["NC-Saimx69x & NC-Fahad"],
+    author: "NoobCore Team",
     team: "NoobCore",
-    countDown: 5,
+    countDown: 10,
     role: 0,
     description: "Change the bot prefix in this chat or globally",
     guide: {
@@ -28,17 +30,12 @@ module.exports = {
     }
   },
 
-
   ncStart: async function ({ message, role, args, commandName, event, threadsData, usersData }) {
     const globalPrefix = global.noobCore.ncsetting.prefix;
-    
-    
     const userName = await usersData.getName(event.senderID) || "there";
 
-  
     if (!args[0]) {
       const threadPrefix = await threadsData.get(event.threadID, "data.prefix") || globalPrefix;
-      
       return message.reply(
         `👋 Hey ${userName}, did you ask for my prefix?\n` +
         `╭‣ 🌐 Global: ${globalPrefix}\n` +
@@ -47,7 +44,6 @@ module.exports = {
       );
     }
 
-    
     if (args[0] === "reset") {
       await threadsData.set(event.threadID, null, "data.prefix");
       return message.reply(
@@ -58,18 +54,13 @@ module.exports = {
       );
     }
 
-    
     if (args[0] === "refresh") {
       try {
         const threadID = event.threadID;
-        
-        
         if (threadsData.cache && threadsData.cache[threadID]) {
           delete threadsData.cache[threadID].data?.prefix;
         }
-        
         const refreshedPrefix = await threadsData.get(threadID, "data.prefix") || globalPrefix;
-        
         return message.reply(
           `🔄 Hey ${userName}, prefix cache has been refreshed!\n` +
           `╭‣ 🌐 Global: ${globalPrefix}\n` +
@@ -77,52 +68,25 @@ module.exports = {
           `🤖 I'm NoobCore V3\n📂 try "${refreshedPrefix}help" to see all commands.`
         );
       } catch (error) {
-        console.error("Refresh error:", error);
-        return message.reply(
-          `❌ Hey ${userName}, I couldn't refresh the prefix!\n` +
-          `╭‣ Error: Cache refresh failed\n` +
-          `╰‣ Solution: Try again in a moment\n` +
-          `🤖 I'm NoobCore V3\n📂 try "${globalPrefix}help" to see all commands.`
-        );
+        return message.reply(`❌ Hey ${userName}, I couldn't refresh the prefix!`);
       }
     }
 
-    
     const newPrefix = args[0];
     const setGlobal = args[1] === "-g";
 
-    
     if (setGlobal && role < 2) {
-      return message.reply(
-        `⛔ Hey ${userName}, I can't do that for you!\n` +
-        `╭‣ Action: Change global prefix\n` +
-        `╰‣ Reason: Admin privileges required\n` +
-        `🤖 I'm NoobCore V3\n📂 try "${globalPrefix}help" to see all commands.`
-      );
+      return message.reply(`⛔ Hey ${userName}, Admin privileges required for global change!`);
     }
 
-    
     const currentPrefix = await threadsData.get(event.threadID, "data.prefix") || globalPrefix;
-    
-    
     const confirmMessage = setGlobal 
-      ? `⚙️ Hey ${userName}, confirm global prefix change?\n` +
-        `╭‣ Current Global: ${globalPrefix}\n` +
-        `╰‣ New Global: ${newPrefix}\n` +
-        `🤖 React to confirm this change!`
-      : `⚙️ Hey ${userName}, confirm chat prefix change?\n` +
-        `╭‣ Current Chat: ${currentPrefix}\n` +
-        `╰‣ New Chat: ${newPrefix}\n` +
-        `🤖 React to confirm this change!`;
-    
+      ? `⚙️ Hey ${userName}, confirm global prefix change?\n╭‣ Current: ${globalPrefix}\n╰‣ New: ${newPrefix}\n🤖 React to confirm!`
+      : `⚙️ Hey ${userName}, confirm chat prefix change?\n╭‣ Current: ${currentPrefix}\n╰‣ New: ${newPrefix}\n🤖 React to confirm!`;
     
     return message.reply(confirmMessage, (err, info) => {
-      if (err) {
-        console.error("Error sending confirmation message:", err);
-        return;
-      }
-      
-      global.noobCore.onReaction.set(info.messageID, {
+      if (err) return;
+      global.noobCore.ncReaction.set(info.messageID, {
         author: event.senderID,
         newPrefix,
         setGlobal,
@@ -131,79 +95,35 @@ module.exports = {
     });
   },
 
-
-  onReaction: async function ({ message, event, Reaction, threadsData, usersData }) {
+  ncReaction: async function ({ message, event, Reaction, threadsData, usersData }) {
     const { author, newPrefix, setGlobal } = Reaction;
-    
-    
     if (event.userID !== author) return;
-
-    
     const userName = await usersData.getName(event.userID) || "there";
 
-    
     if (setGlobal) {
       try {
         global.noobCore.ncsetting.prefix = newPrefix;
-        fs.writeFileSync(
-          global.client.dirConfig,
-          JSON.stringify(global.noobCore.ncsetting, null, 2)
-        );
-        
-        return message.reply(
-          `✅ Hey ${userName}, global prefix has been updated!\n` +
-          `╭‣ New Global Prefix: ${newPrefix}\n` +
-          `╰‣ Scope: All chats will use this prefix\n` +
-          `🤖 I'm NoobCore V3\n📂 try "${newPrefix}help" to see all commands.`
-        );
+        const configPath = global.client.dirConfig || path.join(process.cwd(), "config.json");
+        fs.writeFileSync(configPath, JSON.stringify(global.noobCore.ncsetting, null, 2));
+        return message.reply(`✅ Hey ${userName}, global prefix updated to: ${newPrefix}`);
       } catch (error) {
-        console.error("Global prefix save error:", error);
-        return message.reply(
-          `❌ Hey ${userName}, failed to save global prefix!\n` +
-          `╭‣ Error: Configuration file error\n` +
-          `╰‣ Solution: Check file permissions\n` +
-          `🤖 I'm NoobCore V3\n📂 try "${global.noobCore.ncsetting.prefix}help" to see all commands.`
-        );
+        return message.reply(`❌ Failed to save global prefix config.`);
       }
     }
 
-    
     try {
       await threadsData.set(event.threadID, newPrefix, "data.prefix");
-      
-      return message.reply(
-        `✅ Hey ${userName}, chat prefix has been updated!\n` +
-        `╭‣ New Chat Prefix: ${newPrefix}\n` +
-        `╰‣ Scope: This chat only\n` +
-        `🤖 I'm NoobCore V3\n📂 try "${newPrefix}help" to see all commands.`
-      );
+      return message.reply(`✅ Hey ${userName}, chat prefix updated to: ${newPrefix}`);
     } catch (error) {
-      console.error("Chat prefix save error:", error);
-      return message.reply(
-        `❌ Hey ${userName}, failed to save chat prefix!\n` +
-        `╭‣ Error: Database error\n` +
-        `╰‣ Solution: Try again later\n` +
-        `🤖 I'm NoobCore V3\n📂 try "${global.noobCore.ncsetting.prefix}help" to see all commands.`
-      );
+      return message.reply(`❌ Database error while saving chat prefix.`);
     }
   },
 
-  
-
   ncPrefix: async function ({ event, message, threadsData, usersData }) {
     const triggerText = event.body?.toLowerCase().trim();
-    
-    
     if (!triggerText) return;
-    
-    const isTrigger = 
-      triggerText === "prefix" || 
-      triggerText === "ňč" || 
-      triggerText === "nøøbcore" ||
-      (triggerText.includes("ňč") && triggerText.includes("nøøbcore"));
-    
+    const isTrigger = triggerText === "prefix" || triggerText === "ňč" || triggerText === "nøøbcore";
     if (!isTrigger) return;
-    
     
     const userName = await usersData.getName(event.senderID) || "there";
     const globalPrefix = global.noobCore.ncsetting.prefix;
